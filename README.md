@@ -1,0 +1,3 @@
+📌 Health Records Management System (HRMMS) - REST API A secure, scalable, and well-tested RESTful API for managing healthcare records using Django REST Framework (DRF).
+
+🚀 Features ✔️ User Authentication & Role Management (Patient, Doctor, Nurse, Admin) ✔️ Patient, Doctor, and Nurse Profiles ✔️ Appointments Scheduling & Management ✔️ Medical Records & Lab Results Handling (with encrypted test results) ✔️ Prescriptions & Insurance Claims ✔️ Notifications & Alerts System ✔️ Audit Logs & External API Logging ✔️ Role-Based Access Control (RBAC) ✔️ Comprehensive Unit & Integration Testing
