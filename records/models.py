@@ -7,9 +7,9 @@ from django.conf import settings
 
 # Create your models here.
 class MedicalRecord(models.Model):
-    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_patient',
+    patient_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_patient',
                                 limit_choices_to={'is_staff': False})
-    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_medical_patient',
+    doctor_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_medical_patient',
                                limit_choices_to={'is_staff': True})
     record_date = models.DateTimeField(auto_now_add=True)
     diagnosis = models.TextField()
@@ -18,13 +18,13 @@ class MedicalRecord(models.Model):
     attachments = models.FileField(upload_to="medical_records/", blank=True, null=True)
 
     def clean(self):
-        if self.patient.is_staff:
+        if self.patient_id.is_staff:
             raise ValidationError('You are not allowed to modify this medical record.')
-        if not self.doctor.is_staff:
+        if not self.doctor_id.is_staff:
             raise ValidationError('Doctors must be staff members.')
 
     def __str__(self):
-        return f"Record for {self.patient} - {self.record_date}"
+        return f"Record for {self.patient_id} - {self.record_date}"
 
 
 if not hasattr(settings, "ENCRYPTION_KEY"):
@@ -34,9 +34,9 @@ cipher = Fernet(settings.ENCRYPTION_KEY.encode())
 
 
 class LabResult(models.Model):
-    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lab_result',
+    patient_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lab_result',
                                 limit_choices_to={'is_staff': False})
-    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_lab_result',
+    doctor_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_lab_result',
                                limit_choices_to={'is_staff': True})
     test_name = models.CharField(max_length=255)
     test_result = models.BinaryField(null=True, blank=True, db_column="_test_result")

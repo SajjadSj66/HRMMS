@@ -1,11 +1,7 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from .views import *
 
-router = DefaultRouter()
-router.register(r"prescriptions", PrescriptionViewSet, basename="prescriptions")
-router.register(r"insurance-claims", InsuranceClaimViewSet, basename="insurance-claims")
-
 urlpatterns = [
-    path("", include(router.urls)),
+    path("", PrescriptionAPIView.as_view(), name="prescriptions"),
+    path("insurance-claims/", InsuranceClaimAPIView.as_view(), name="insurance_claims"),
 ]

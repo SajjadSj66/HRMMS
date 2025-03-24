@@ -5,11 +5,11 @@ from .models import *
 # Register your models here.
 @admin.register(MedicalRecord)
 class MedicalRecordAdmin(admin.ModelAdmin):
-    list_display = ("patient", "doctor", "record_date", "diagnosis")
+    list_display = ("patient_id", "doctor_id", "record_date", "diagnosis")
     search_fields = ("patient__username", "doctor__username", "diagnosis", "treatment")
-    list_filter = ("record_date", "doctor")
+    list_filter = ("record_date", "doctor_id")
     ordering = ("-record_date",)
-    readonly_fields = ("record_date", "doctor")
+    readonly_fields = ("record_date", "doctor_id")
 
     def get_queryset(self, request):
         """Restrict non-superusers from seeing all records."""
@@ -37,6 +37,6 @@ class MedicalRecordAdmin(admin.ModelAdmin):
 
 @admin.register(LabResult)
 class LabResultAdmin(admin.ModelAdmin):
-    list_display = ("test_name", "patient", "doctor", "test_date")
+    list_display = ("test_name", "patient_id", "doctor_id", "test_date")
     search_fields = ("test_name", "patient__username", "doctor__username")
     list_filter = ("test_name",)

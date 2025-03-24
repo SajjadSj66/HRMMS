@@ -1,19 +1,28 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions
+from rest_framework import status, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 
 
 # Create your views here.
-class NurseViewSet(viewsets.ModelViewSet):
-    queryset = Nurse.objects.all()
-    serializer_class = NurseSerializer
+class NurseAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return Nurse.objects.all()
-        return Nurse.objects.filter(user=self.request.user)
+    def get(self, request):
+        if request.user.is_staff:
+            nurses = Nurse.objects.all()
+        else:
+            nurses = Nurse.objects.filter(user=request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer = NurseSerializer(nurses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = NurseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

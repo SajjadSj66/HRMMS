@@ -1,19 +1,28 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions
+from rest_framework import status, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 
 
 # Create your views here.
-class DoctorViewSet(viewsets.ModelViewSet):
-    queryset = Doctor.objects.all()
-    serializer_class = DoctorSerializer
+class DoctorAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        if hasattr(self.request.user, 'doctor'):
-            return Doctor.objects.filter(user=self.request.user)
-        return Doctor.objects.none()
+    def get(self, request):
+        if hasattr(request.user, 'doctor'):
+            doctor = Doctor.objects.filter(user=request.user)
+        else:
+            doctor = Doctor.objects.none()
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer = DoctorSerializer(doctor, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = DoctorSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

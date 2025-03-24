@@ -1,11 +1,6 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-
+from django.urls import path
 from .views import *
 
-router = DefaultRouter()
-router.register(r"nurses", NurseViewSet, basename="nurses")
-
 urlpatterns = [
-    path("", include(router.urls)),
+    path("", NurseAPIView.as_view(), name="nurses"),
 ]

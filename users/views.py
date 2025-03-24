@@ -1,8 +1,9 @@
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from audit_logs.audit_logging import log_audit_trail
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer, ChangePasswordSerializer
@@ -11,26 +12,37 @@ from django.contrib.auth import authenticate
 User = get_user_model()
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+class UserAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-class RegisterView(CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
 
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class LoginView(CreateAPIView):
-    serializer_class = LoginSerializer
+
+class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
+    def post(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
 
@@ -52,10 +64,10 @@ class LoginView(CreateAPIView):
         }, status=status.HTTP_200_OK)
 
 
-class LogoutView(CreateAPIView):
+class LogoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         refresh_token = request.data.get("refresh")
 
         if not refresh_token:
@@ -69,10 +81,13 @@ class LogoutView(CreateAPIView):
             return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ChangePasswordView(UpdateAPIView):
-    queryset = User.objects.all()
-    serializer_class = ChangePasswordSerializer
+class ChangePasswordAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
+    def put(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            request.user.set_password(serializer.validated_data["new_password"])
+            request.user.save()
+            return Response({"detail": "Password Changed Successfully"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

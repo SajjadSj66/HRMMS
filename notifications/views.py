@@ -1,16 +1,23 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions
+from rest_framework import status, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 
 # Create your views here.
-class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all().order_by("-created_at")
-    serializer_class = NotificationSerializer
+class NotificationAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user).order_by("-created_at")
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def post(self, request):
+        serializer = NotificationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,11 +1,9 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from .views import *
 
-router = DefaultRouter()
-router.register(r"medical-records", MedicalRecordViewSet, basename="medical-records")
-router.register(r"lab-results", LabResultViewSet, basename="lab-results")
-
 urlpatterns = [
-    path("", include(router.urls)),
+    path("medical-records/", MedicalRecordAPIView.as_view(), name="medical_records"),
+    path("medical-records/<int:record_id>", MedicalRecordAPIView.as_view(), name="medical_records_detail"),
+    path("lab-results/", LabResultAPIView.as_view(), name="lab_results"),
+    path("lab-results/<int:pk>", LabResultAPIView.as_view(), name="lab_results_detail"),
 ]

@@ -1,47 +1,109 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 
-class PrescriptionViewSet(viewsets.ModelViewSet):
-    queryset = Prescription.objects.all()
-    serializer_class = PrescriptionSerializer
+
+class PrescriptionAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
+    def get(self, request):
+        user = request.user
         if user.role == "patient":
-            return Prescription.objects.filter(patient=user).select_related("medical_record", "prescribed_by")
+            prescriptions = Prescription.objects.filter(patient=user).select_related("medical_record", "prescribed_by")
         elif user.role == "doctor":
-            return Prescription.objects.filter(prescribed_by=user).select_related("medical_record", "patient")
-        return Prescription.objects.none()
+            prescriptions = Prescription.objects.filter(prescribed_by=user).select_related("medical_record", "patient")
+        else:
+            return Response({"errors": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
 
-    def perform_create(self, serializer):
-        if self.request.user.role != "doctor":
+        serializer = PrescriptionSerializer(prescriptions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if request.user.role != "doctor":
             raise PermissionDenied("Only doctors can create prescriptions.")
-        prescription = serializer.save(prescribed_by=self.request.user)
 
-        if prescription.medical_record.patient != prescription.patient:
-            raise serializers.ValidationError("The prescription's patient must match the medical record's patient.")
+        record_id = request.data.get("record_id")
+        if not record_id:
+            return Response({"errors": "Missing record id"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            medical_record = MedicalRecord.objects.get(id=record_id)
+        except MedicalRecord.DoesNotExist:
+            return Response({"errors": "Invalid record id"}, status=status.HTTP_400_BAD_REQUEST)
+
+        patient_id = request.data.get("patient_id")
+        if not patient_id:
+            return Response({"errors": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            patient = User.objects.get(id=patient_id)
+        except User.DoesNotExist:
+            return Response({"errors": "Invalid patient id"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if medical_record.patient != patient:
+            return Response(
+                {"patient_id": "The prescription's patient must match the medical record's patient."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = request.data.copy()
+        data["prescribed_by"] = request.user.id
+        data["issued_date"] = now()
+        data["medical_record"] = medical_record.id
+        data["patient"] = patient.id
+
+        serializer = PrescriptionSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class InsuranceClaimViewSet(viewsets.ModelViewSet):
-    queryset = InsuranceClaim.objects.all()
-    serializer_class = InsuranceClaimSerializer
+class InsuranceClaimAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        queryset = InsuranceClaim.objects.all()
+    def get(self, request):
+        user = request.user
+        claims = InsuranceClaim.objects.all()
 
         if user.role == "patient":
-            queryset = queryset.filter(patient=user)
-        claim_status = self.request.query_params.get("claim_status")
+            claims = claims.filter(patient=user)
+        claim_status = request.query_params.get("claim_status")
         if claim_status:
-            queryset = queryset.filter(claim_status=claim_status)
-        return queryset()
+            claims = claims.filter(claim_status=claim_status)
 
-    def perform_create(self, serializer):
-        if self.request.user.role != "patient":
+        serializer = InsuranceClaimSerializer(claims, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if request.user.role != "patient":
             raise PermissionDenied("Only patients can create insurance claims.")
-        serializer.save(patient=self.request.user)
+
+        medical_record_id = request.data.get("medical_record_id")
+        if not medical_record_id:
+            return Response({"medical_record_id": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            medical_record = MedicalRecord.objects.get(id=medical_record_id)
+        except MedicalRecord.DoesNotExist:
+            return Response({"medical_record_id": "Invalid medical record ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if medical_record.patient != request.user:
+            return Response({"error": "The insurance claim must be linked to the correct patient's medical record."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data.copy()
+        data["patient"] = request.user.id
+        data["submitted_by"] = now()
+
+
+        serializer = InsuranceClaimSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
