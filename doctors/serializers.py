@@ -1,5 +1,8 @@
 from rest_framework import serializers
 from .models import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -7,15 +10,27 @@ class DoctorSerializer(serializers.ModelSerializer):
 
     def validate_license_number(self, value):
         if Doctor.objects.filter(license_number=value).exists():
-            raise serializers.ValidationError("This license number is already in use.")
+            raise serializers.ValidationError({"Detail": "This license number is already in use."})
         return value
 
-    def validated_specialty(self, value):
+    def validate_specialty(self, value):
         if not value.strip():
-            raise serializers.ValidationError("Specialty cannot be empty.")
+            raise serializers.ValidationError({"Detail": "Specialty cannot be empty."})
         return value
+
+    def create(self, validated_data):
+        doctor = super().create(validated_data)
+        user = self.context['request'].user
+        logger.info(f"Doctor profile created for user {user.username} with license {doctor.license_number}")
+        return doctor
+
+    def update(self, instance, validated_data):
+        doctor = super().update(instance, validated_data)
+        user = self.context['request'].user
+        logger.info(f"Doctor profile updated by user {user.username} (doctor_id={doctor.id})")
+        return doctor
 
     class Meta:
         model = Doctor
-        fields = '__all__'
-        read_only_fields = ["user"]
+        fields = ['user', 'specialty', 'license_number', 'hospital_affiliation']
+        read_only_fields = ['user', 'license_number']

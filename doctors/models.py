@@ -4,7 +4,7 @@ from users.models import User
 
 # Create your models here.
 class Doctor(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor', db_index=True)
     specialty = models.CharField(max_length=255)
     license_number = models.CharField(max_length=50, unique=True)
     hospital_affiliation = models.CharField(max_length=255, blank=True, null=True)

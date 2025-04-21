@@ -16,4 +16,6 @@ class ExternalAPILogSerializer(AuditLogSerializer):
 
     class Meta:
         model = ExternalAPILog
-        fields = ['id', 'user', 'service_name', 'api_url', 'method', 'response_data', 'response_data', 'timestamp']
+        fields = ['id', 'user', 'service_name', 'api_url', 'method', 'response_data', 'timestamp']
+        read_only_fields = ['user', 'timestamp', 'response_data', 'service_name', 'api_url', 'method']
+

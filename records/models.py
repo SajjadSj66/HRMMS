@@ -7,10 +7,10 @@ from django.conf import settings
 
 # Create your models here.
 class MedicalRecord(models.Model):
-    patient_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_patient',
-                                limit_choices_to={'is_staff': False})
-    doctor_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_medical_patient',
-                               limit_choices_to={'is_staff': True})
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_patient',
+                                limit_choices_to={'role': 'patient'}, db_index=True, null=True, blank=True)
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_medical_patient',
+                               limit_choices_to={'role': 'doctor'}, db_index=True, null=True, blank=True)
     record_date = models.DateTimeField(auto_now_add=True)
     diagnosis = models.TextField()
     treatment = models.TextField()
@@ -18,10 +18,10 @@ class MedicalRecord(models.Model):
     attachments = models.FileField(upload_to="medical_records/", blank=True, null=True)
 
     def clean(self):
-        if self.patient_id.is_staff:
-            raise ValidationError('You are not allowed to modify this medical record.')
-        if not self.doctor_id.is_staff:
-            raise ValidationError('Doctors must be staff members.')
+        if self.patient.is_staff:
+            raise ValidationError({'patient': 'You are not allowed to medical records.'})
+        if not self.doctor.is_staff:
+            raise ValidationError({'doctor': 'Doctors must be staff members.'})
 
     def __str__(self):
         return f"Record for {self.patient_id} - {self.record_date}"
@@ -34,10 +34,10 @@ cipher = Fernet(settings.ENCRYPTION_KEY.encode())
 
 
 class LabResult(models.Model):
-    patient_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lab_result',
-                                limit_choices_to={'is_staff': False})
-    doctor_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_lab_result',
-                               limit_choices_to={'is_staff': True})
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lab_result',
+                                limit_choices_to={'role': 'patient'}, db_index=True, null=True, blank=True)
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_lab_result',
+                               limit_choices_to={'role': 'doctor'}, db_index=True, null=True, blank=True)
     test_name = models.CharField(max_length=255)
     test_result = models.BinaryField(null=True, blank=True, db_column="_test_result")
     normal_range = models.CharField(max_length=100)

@@ -2,16 +2,15 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import *
-from .serializers import *
+from .models import Appointment
+from .serializers import AppointmentSerializer
+from .permissions import AppointmentPermission
 
-
-# Create your views here.
 class AppointmentAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, AppointmentPermission]
 
     def get(self, request):
-        """نمایش لیست نوبت‌های مربوط به کاربر"""
+        """List appointments based on user role"""
         user = request.user
 
         if user.role == 'patient':
@@ -27,39 +26,24 @@ class AppointmentAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        """ایجاد نوبت جدید (فقط بیماران)"""
-        if not hasattr(request.user, 'patient'):
-            return Response({"error": "Only patients can create an appointment."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = AppointmentSerializer(data=request.data)
+        """Create appointment (patients only)"""
+        serializer = AppointmentSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(patient=request.user.patient)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, appointment_id):
-        """بروزرسانی نوبت (فقط پزشک و پرستار)"""
+        """Update appointment (doctors and nurses only)"""
         appointment = get_object_or_404(Appointment, id=appointment_id)
-
-        if not (hasattr(request.user, 'doctor') or hasattr(request.user, 'nurse')):
-            return Response({"error": "Only doctors and nurses can update appointments."},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        serializer = AppointmentSerializer(appointment, data=request.data, partial=True)
+        serializer = AppointmentSerializer(appointment, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-def delete(self, request, appointment_id):
-    """حذف نوبت (فقط پزشک و بیمار)"""
-    appointment = get_object_or_404(Appointment, id=appointment_id)
-    if not(hasattr(request.user, 'doctor') or hasattr(request.user, 'patient')):
-        return Response({"error": "Only doctors and patients can delete appointments."},
-                        status=status.HTTP_403_FORBIDDEN)
-
-    appointment.delete()
-    return Response({"message": "Appointment deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request, appointment_id):
+        """Delete appointment (doctors and patients only)"""
+        appointment = get_object_or_404(Appointment, id=appointment_id)
+        appointment.delete()
+        return Response({"Detail": "Appointment deleted successfully."}, status=status.HTTP_204_NO_CONTENT)

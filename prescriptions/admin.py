@@ -4,10 +4,10 @@ from .models import Prescription
 
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
-    list_display = ("patient_id", "prescribed_by", "medical_details", "issued_date")
-    list_filter = ("issued_date", "prescribed_by")
+    list_display = ("patient_id", "prescriber", "medical_details", "issued_date")
+    list_filter = ("issued_date", "prescriber")
     search_fields = ("patient__username", "prescribed_by__username", "medical_details")
-    readonly_fields = ("issued_date", "prescribed_by")
+    readonly_fields = ("issued_date", "prescriber")
 
     def save_model(self, request, obj, form, change):
         """Ensure that only doctors can assign prescriptions and set prescribed_by."""

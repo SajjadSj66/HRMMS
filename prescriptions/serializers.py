@@ -1,68 +1,119 @@
+import logging
 from rest_framework import serializers
 from .models import *
 from django.utils.timezone import now
 
+logger = logging.getLogger(__name__)
+
 
 class PrescriptionSerializer(serializers.ModelSerializer):
+    record_id = serializers.IntegerField(write_only=True)
+    patient_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Prescription
-        fields = "__all__"
-        read_only_fields = ["prescribed_by", "issued_date"]
+        fields = [
+            "id", "record", "prescriber", "patient",
+            "medical_details", "dosage", "frequency", "duration",
+            "notes", "issued_date",
+            "record_id", "patient_id"
+        ]
+        read_only_fields = ["id", "prescriber", "issued_date", "record", "patient"]
 
-    def create(self, validated_data):
-        user = self.context["request"].user
+    def validate(self, attrs):
+        request = self.context["request"]
+        user = request.user
 
-        if user.role != "doctor":
-            raise serializers.ValidationError("Only doctors can create prescriptions.")
+        # Getting values from input
+        record_id = attrs.get("record_id")
+        patient_id = attrs.get("patient_id")
 
-        record_id = self.context["request"].data.get("record_id")
         if not record_id:
-            raise serializers.ValidationError({"record_id": "Missing record id."})
+            raise serializers.ValidationError({"record_id": "This field is required."})
+        if not patient_id:
+            raise serializers.ValidationError({"patient_id": "This field is required."})
 
         try:
-            medical_record = MedicalRecord.objects.get(id=record_id)
+            record = MedicalRecord.objects.get(id=record_id)
         except MedicalRecord.DoesNotExist:
             raise serializers.ValidationError({"record_id": "Invalid record id."})
-
-        patient_id = self.context["request"].data.get("patient_id")
-        if not patient_id:
-            raise serializers.ValidationError({"patient_id": "Missing patient id."})
 
         try:
             patient = User.objects.get(id=patient_id)
         except User.DoesNotExist:
             raise serializers.ValidationError({"patient_id": "Invalid patient id."})
 
-        if medical_record.patient != patient:
-            raise serializers.ValidationError(
-                {"patient_id": "The prescription's patient must match the prescription's medical record."}
-            )
+        if record.patient != patient:
+            raise serializers.ValidationError({
+                "patient_id": "The patient must match the medical record's patient."
+            })
 
-        validated_data['prescribed_by'] = user
-        validated_data['issued_date'] = now()
-        validated_data['patient'] = patient
-        validated_data['medical_record'] = medical_record
+        # Save in context for use in create
+        self.context["record"] = record
+        self.context["patient"] = patient
 
-        return super().create(validated_data)
-
-class InsuranceClaimSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InsuranceClaim
-        fields = "__all__"
-        read_only_fields = ["submitted_date"]
+        return attrs
 
     def create(self, validated_data):
+        user = self.context["request"].user
+        record = self.context["record"]
+        patient = self.context["patient"]
+
+        validated_data["prescriber"] = user
+        validated_data["issued_date"] = now()
+        validated_data["record"] = record
+        validated_data["patient"] = patient
+
+        prescription = Prescription.objects.create(**validated_data)
+
+        logger.info(f"Prescription created by user {user.id}, prescription id: {prescription.id}")
+
+        return prescription
+
+
+class InsuranceClaimSerializer(serializers.ModelSerializer):
+    medical_record_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = InsuranceClaim
+        fields = [
+            "id", "patient", "medical_record", "claim_amount", "claim_status",
+            "submitted_date", "notes", "medical_record_id"
+        ]
+        read_only_fields = ["id", "patient", "medical_record", "claim_amount", "submitted_date"]
+
+    def validate(self, attrs):
         request = self.context["request"]
         user = request.user
 
-        if user.role != "patient":
-            raise serializers.ValidationError("Only patients can claim insurance.")
+        record_id = attrs.get("medical_record_id")
+        if not record_id:
+            raise serializers.ValidationError({"medical_record_id": "This field is required."})
 
-        medical_record = validated_data.get("medical_record")
-        patient = validated_data.get("patient")
+        try:
+            record = MedicalRecord.objects.get(id=record_id)
+        except MedicalRecord.DoesNotExist:
+            raise serializers.ValidationError({"medical_record_id": "Invalid ID."})
 
-        if medical_record.patient != patient:
-            raise serializers.ValidationError("The insurance claim must be linked to the correct patient's medical record.")
+        if record.patient != user:
+            raise serializers.ValidationError({
+                "medical_record_id": "The medical record must belong to the requesting patient."
+            })
 
-        validated_data["submitted_date"] = now()
-        return super().create(validated_data)
+        # Save to create
+        self.context["record"] = record
+
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        record = self.context["record"]
+
+        validated_data["patient"] = request.user
+        validated_data["medical_record"] = record
+        validated_data["submitted_date"] = now().date()
+
+        claim = InsuranceClaim.objects.create(**validated_data)
+
+        logger.info(f"Insurance claim submitted by user {request.user.id}, claim ID: {claim.id}")
+        return claim

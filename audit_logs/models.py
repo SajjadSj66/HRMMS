@@ -3,7 +3,7 @@ from users.models import User
 
 
 class AuditLog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs", db_index=True)
     action = models.CharField(max_length=255)
     timestamp = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -13,7 +13,7 @@ class AuditLog(models.Model):
 
 
 class ExternalAPILog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_api_logs")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_api_logs", db_index=True)
     service_name = models.CharField(max_length=255)
     api_url = models.URLField()
     method = models.CharField(max_length=10)
